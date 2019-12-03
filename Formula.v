@@ -32,7 +32,7 @@ Fixpoint interp (V : valuation) (p : form) : Datatypes.bool :=
   | not f => negb (interp V f)
   end.
 
-Module Test.
+Module Test_override.
  Definition x := (var (Id "x")).
  Definition y := (var (Id "y")).
 
@@ -42,4 +42,4 @@ Module Test.
 
  Definition context := override (override empty_valuation (Id "x") false) (Id "y") true.
 
-End Test.                              
+End Test_override.                        

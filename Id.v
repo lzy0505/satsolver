@@ -132,7 +132,6 @@ Proof.
   apply string_dec.
 Defined.
 
-(*
 
 
 
@@ -140,10 +139,12 @@ Theorem beq_id_refl : forall i : id, true = beq_id i i.
 Proof.
   intros.
   unfold  beq_id.
-  destruct (id_eq_dec i i) as [|Hs].
-  - reflexivity.
-  - destruct Hs. reflexivity.
+  destruct i.
+  apply eqb_string_refl.
 Qed.
+
+(*
+
 
 Lemma id_eq_refl: forall x : id, id_eq x x.
 Proof.

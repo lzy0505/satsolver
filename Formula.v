@@ -1,5 +1,7 @@
 Require Import Id.
 From Coq Require Import Bool.Bool.
+Export Id.
+Export Bool.Bool.
 
 (*alias*)
 Definition id := Id.id. (*Type of id*)
@@ -42,4 +44,97 @@ Module Test_override.
 
  Definition context := override (override empty_valuation (Id "x") false) (Id "y") true.
 
-End Test_override.                        
+End Test_override.
+
+
+Lemma land_interp_interp: forall p1 p2 V, interp V p1=true /\ interp V p2=true <-> interp V (land p1 p2)=true.
+Proof.
+  intros.
+  split.
+  - intro.
+    destruct H.
+     unfold interp.
+     unfold interp in H,H0.
+     now rewrite H,H0.
+  - intro.
+    split;
+
+    unfold interp in H;
+      symmetry in  H;
+      apply Bool.andb_true_eq in H;
+      destruct H;
+      unfold interp;
+      symmetry;
+      assumption.
+      
+Qed.
+
+Lemma lor_interp_interp: forall p1 p2 V, interp V p1=true \/ interp V p2=true <-> interp V (lor p1 p2)=true.
+Proof.
+  intros.
+  split.
+  - intro.
+    destruct H.
+     unfold interp.
+     unfold interp in H.
+     rewrite H. reflexivity.
+     unfold interp.
+     unfold interp in H.
+     rewrite H. Search orb. apply Bool.orb_true_r.
+  - intro.
+
+    unfold interp in H.
+    Search orb.
+    apply Bool.orb_prop in H.
+   
+      unfold interp;
+      assumption.
+      
+Qed.
+
+
+Lemma mapsto_interp_interp: forall p1 p2 V, interp V p1=false \/ interp V p2=true <-> interp V (mapsto p1 p2)=true.
+Proof.
+  intros.
+  split.
+  - intro.
+    destruct H.
+     unfold interp.
+     unfold interp in H.
+     rewrite H. reflexivity.
+     unfold interp.
+     unfold interp in H.
+     rewrite H. apply Bool.orb_true_r.
+  - intro.
+
+    unfold interp in H.
+    Search orb.
+    apply Bool.orb_prop in H.
+    destruct H.
+    + left.
+      
+      unfold interp.
+      Search negb.
+      now apply Bool.negb_true_iff.
+    + right.
+      unfold interp.
+      assumption.
+Qed.
+
+
+
+Lemma not_interp_interp: forall p V, interp V p=false  <-> interp V (not p)=true.
+Proof.
+  intros.
+  split.
+  - intro.
+     unfold interp.
+     unfold interp in H.
+     rewrite H. reflexivity.
+  - intro.
+
+    unfold interp in H.
+
+    unfold interp.
+    now apply Bool.negb_true_iff.
+Qed.

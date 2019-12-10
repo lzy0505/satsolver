@@ -149,3 +149,246 @@ Fixpoint neg_norm_converter (p :form) : form :=
   | not (mapsto p1 p2) => land  (neg_norm_converter  p1)  (neg_norm_converter (not p2))                     
   | not (not p1) => (neg_norm_converter p1)
   end.*)
+
+Fixpoint is_neg_normal  (p : form) : Datatypes.bool :=
+  match p with
+  | var _ => true
+  | bool _ => true
+  | land p1 p2 =>  is_neg_normal p1 && is_neg_normal p2
+  | lor p1 p2 =>  is_neg_normal p1 && is_neg_normal p2
+  | mapsto p1 p2 =>  is_neg_normal p1 && is_neg_normal p2  
+  | not (var _ ) => true
+  | not (bool _) => false
+  | not (land _ _) => false
+  | not (lor _ _) => false
+  | not (mapsto _ _) => false
+  | not (not _) => false                   
+  end.
+
+
+Lemma true_false : forall (p:form),is_neg_normal (neg_norm_converter true p) =  is_neg_normal (neg_norm_converter false p).
+  Proof.
+    intros.
+    induction  p;
+      try reflexivity;
+      try (destruct b; reflexivity).
+     - simpl.
+       now rewrite IHp1, IHp2.
+     - simpl.
+       now rewrite IHp1, IHp2.
+     - simpl.
+       now rewrite IHp2.
+     - simpl. symmetry. assumption.
+Qed.
+     
+    
+
+Lemma converter_correctness_2: forall (p:form), is_neg_normal (neg_norm_converter false  p) = true.
+Proof.
+  intro.
+  induction p;
+    try (unfold neg_norm_converter;  reflexivity);
+    try (unfold neg_norm_converter; unfold is_neg_normal;
+    unfold neg_norm_converter, is_neg_normal in IHp1, IHp2;
+    rewrite IHp1; rewrite IHp2;
+    reflexivity).
+  - simpl.
+    now rewrite true_false.
+Qed.
+
+(*  Can't just prove  is_neg_normal (neg_norm_converter true p) = true ->   is_neg_normal (neg_norm_converter false p) =true
+it will cause cycle prove!
+if you want to prove this , you need prove is_neg_normal (neg_norm_converter false p) = true ->   is_neg_normal (neg_norm_converter true p) =true
+ if you do so ,you need to prove the first one.
+
+induction  p;
+      try reflexivity;
+      try (destruct b; reflexivity);
+      try (simpl;
+           simpl in IHp;
+           symmetry in IHp;
+           apply andb_true_eq  in IHp;
+           destruct IHp;
+           symmetry in H, H0;
+           apply IHp1 in H;
+           apply IHp2 in H0;
+           now rewrite H,H0).
+    + simpl;
+        simpl in IHp;
+        symmetry in IHp;
+        apply andb_true_eq  in IHp;
+        destruct IHp;
+        symmetry in H, H0;
+        apply IHp2 in H0;
+        now rewrite H,H0.
+    + simpl;simpl in IHp.
+cycle!!
+       induction  p;
+      try reflexivity;
+      try (destruct b; reflexivity).
+      * simpl;
+           simpl in IHp;
+           symmetry in IHp;
+           apply andb_true_eq  in IHp;
+           destruct IHp;
+           symmetry in H, H0;
+        apply IHp1 in H;
+           apply IHp2 in H0.
+             now rewrite H,H0.
+           try(  intro; assumption).
+           try(  intro; assumption).
+           try(  intro; assumption).
+       *  simpl;
+           simpl in IHp;
+           symmetry in IHp;
+           apply andb_true_eq  in IHp;
+           destruct IHp;
+           symmetry in H, H0;
+        apply IHp1 in H;
+           apply IHp2 in H0.
+             now rewrite H,H0.
+           try(  intro; assumption).
+           try(  intro; assumption).
+           try(  intro; assumption).
+       *simpl;
+           simpl in IHp;
+           symmetry in IHp;
+           apply andb_true_eq  in IHp;
+           destruct IHp;
+           symmetry in H, H0.
+           apply IHp2 in H0.
+           now rewrite H,H0.
+           try(  intro; assumption).
+       *  simpl;
+            simpl in IHp, IHp0, IHp1. ???*)
+
+
+
+Definition solver (p : form) :Datatypes.bool:=
+  match find_valuation (neg_norm_converter false p) with
+  | Some _ => true
+  | None => false
+  end.
+
+
+
+
+Lemma land_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (land p1 p2))=Some V -> interp V p1=true /\ interp V p2=true.
+Proof.
+  intros.
+  split;
+    unfold find_valuation in H;
+    unfold try_valuation in H;
+    induction (enum_valuation (collect_var (neg_norm_converter false (land p1 p2)))); (*add optimizer*)
+    try (discriminate H);
+    try (rewrite <-converter_correctness in H;
+         destruct (interp a (land p1 p2)) eqn: E1); (*rewrite to the old proof*)
+    try(inversion H;
+        apply land_interp_interp in E1;
+        destruct E1;
+        rewrite <-H1;
+        assumption);
+    try(apply IHl; (*why it works?*)
+        apply H).
+  Qed.
+ 
+
+
+
+
+Lemma lor_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (lor p1 p2))=Some V -> interp V p1=true \/ interp V p2=true.
+Proof.
+  intros.
+  unfold find_valuation, try_valuation in H.
+  induction (enum_valuation (collect_var (neg_norm_converter false (lor p1 p2)))). (*add optimizer*)
+  - discriminate H.
+  - rewrite <-converter_correctness in H.
+    destruct (interp a (lor p1 p2)) eqn: E1.
+    + inversion H.
+      apply lor_interp_interp in E1.
+      rewrite <-H1.
+      assumption.
+    + apply IHl. (*why it works?*)
+      apply H.
+Qed.
+
+
+
+
+Lemma mapsto_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (mapsto p1 p2))=Some V -> interp V p1=false \/ interp V p2=true.
+Proof.
+  intros.
+  unfold find_valuation,try_valuation in H.
+  induction (enum_valuation (collect_var (neg_norm_converter false (mapsto p1 p2)))).
+    - discriminate H.
+    - rewrite <-converter_correctness in H.
+      destruct (interp a (mapsto p1 p2)) eqn: E1.    
+       + inversion H.
+         apply mapsto_interp_interp in E1.
+         rewrite <-H1.
+         assumption.
+       + apply IHl. (*why it works?*)
+         apply H.
+Qed.
+
+
+
+Lemma not_find_interp: forall p V, find_valuation (neg_norm_converter false (not p))=Some V -> interp V p=false.
+Proof.
+  intros.
+  unfold find_valuation, try_valuation in H.
+  induction (enum_valuation (collect_var (neg_norm_converter false (not p)))).
+  - discriminate H.
+  - rewrite <-converter_correctness in H.
+    destruct (interp a (not p)) eqn: E1.
+    + inversion H.
+      apply not_interp_interp in E1.
+      rewrite <-H1.
+      assumption.
+    + apply IHl. (*why it works?*)
+      apply H.
+Qed.
+
+
+ 
+Lemma solver_sound : forall p, solver p = true -> satisfiable p.
+Proof.
+  intros.
+  destruct p;unfold satisfiable;unfold solver in H. 
+  - (*var*)
+    exists (override empty_valuation i true).
+    simpl.
+    unfold override.
+    now rewrite  <- beq_id_refl.
+  - (*bool*)
+    destruct (find_valuation (neg_norm_converter false (bool b))) eqn:E in H;(try discriminate H).
+    unfold find_valuation in E.  
+    simpl in E.
+    destruct b.    
+    now exists v.
+    discriminate E.
+  -  (*land*)
+    destruct (find_valuation (neg_norm_converter false (land p1 p2))) eqn:E in H;(try discriminate H).
+    exists v.
+    apply land_interp_interp.
+    apply land_find_interp in E.
+    assumption.
+  - (*lor*)
+    destruct (find_valuation (neg_norm_converter false (lor p1 p2))) eqn:E in H;try(discriminate H).
+    exists v.
+    apply lor_interp_interp.
+    apply lor_find_interp in E.
+    assumption.
+  - (* mapsto*)   
+    destruct (find_valuation (neg_norm_converter false (mapsto p1 p2))) eqn:E in H;try(discriminate H).
+    exists v.
+    apply mapsto_interp_interp.
+    apply mapsto_find_interp in E.
+    assumption.
+  - (* not*)   
+    destruct (find_valuation (neg_norm_converter false (not p))) eqn:E in H;try(discriminate H).
+    exists v.
+    apply not_interp_interp.
+    apply not_find_interp in E.
+    assumption.
+Qed.  

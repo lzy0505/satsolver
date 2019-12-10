@@ -50,6 +50,64 @@ Eval compute in (collect_var (land (lor x (not y)) (lor (not x) y))).
 End Test_collect_var.
 
 
+(*
+Can't defined in the following generator way
+
+Fixpoint next_valuation (V : valuation) (l : list id) : option valuation :=
+  match l with
+  | nil => None
+  | x::xs => if negb (V x)
+             then Some (override V x true)
+             else next_valuation (override V x false) xs
+  end.
+
+Module Test''.
+
+ Definition x := (Id "x").
+ Definition y := (Id "y").
+ Definition z := (Id "z").
+ 
+ Definition apply_test (ov : option valuation) (i :id) :option Datatypes.bool :=
+   match ov with
+   |Some v => Some (v i)
+   |None => None
+   end.
+
+ Fixpoint apply_list  (ov : option valuation) (l :list id) : list (option Datatypes.bool):=
+   match l with 
+   |nil => []
+   | x :: xs => (apply_test ov x) :: (apply_list ov xs)
+   end.
+ 
+Eval compute in (apply_list (next_valuation (override (override (override empty_valuation x true) y false)z true ) [x;y;z]) [x;y;z]).
+
+Fixpoint all_valuation (V : option valuation) (l: list id) (n : nat) : list (list (option Datatypes.bool)):=
+  match n with
+  | 0 => []
+  | S n' =>
+    match V with
+    |Some v => (apply_list V l) :: (all_valuation (next_valuation v l) l n')
+    |None => []
+    end
+  end.
+
+
+
+Eval compute in (all_valuation (Some empty_valuation) [x;y;z] 10).
+
+End Test''.
+
+Fixpoint try_valuation (v: valuation) (p:form) (l :list id) : option valuation :=
+  if interp v p
+  then Some v
+  else match (next_valuation v l) with
+       | None => None
+       | Some v' => try_valuation v' p l
+       end.
+Error!
+*)
+
+
 Fixpoint add_id (lv: list valuation) (i:id) : list valuation :=
    match lv with
   | nil => []

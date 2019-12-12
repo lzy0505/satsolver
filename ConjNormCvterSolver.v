@@ -2,34 +2,44 @@ Require Import Formula Find FormOptSolver.
 From Coq Require Import Lists.ListSet.
 From Coq Require Import Strings.String.
 Import ListNotations.
-Require Import Btauto.
 
 
-
-Fixpoint neg_norm_converter (hn :Datatypes.bool) (p :form) : form :=
-  match hn, p with
-  | false, var _ =>  p
-  | true, var _ => (not  p)
-  | false, bool _ => p
-  | true, bool true => bool false
-  | true, bool false => bool true   
-  | false, land p1 p2 => land (neg_norm_converter false p1) (neg_norm_converter false p2)
-  | true, land p1 p2 =>  lor (neg_norm_converter true  p1) (neg_norm_converter true  p2)
-  | false, lor p1 p2 => lor (neg_norm_converter false p1) (neg_norm_converter false p2)
-  | true, lor p1 p2 =>  land (neg_norm_converter true  p1) (neg_norm_converter true  p2)
-  | false, mapsto p1 p2 => lor (neg_norm_converter true p1) (neg_norm_converter false p2)
-  | true, mapsto p1 p2 => land  (neg_norm_converter false p1)  (neg_norm_converter true p2)   
-  | false, not p1  => (neg_norm_converter true p1)
-  | true, not p1  => (neg_norm_converter false p1)
+Fixpoint or_clus_cnf (C A : form)  : form :=
+  match A with
+  | land B1 B2 => land (or_clus_cnf C B1) (or_clus_cnf C B2)
+  | _ => lor A C
   end.
 
-Definition x := (Id "x").
-Definition y := (Id "y").
+Fixpoint or_cnf_cnf (A1 A2 : form)  : form :=
+  match A1 with
+  | land B1 B2 => land (or_cnf_cnf B1 A2) (or_cnf_cnf B2 A2)
+  | _ => or_clus_cnf A1 A2
+  end.
 
-Definition f :=  (mapsto (land (var x) (var y)) (var y)).
 
-Eval compute in (neg_norm_converter false f).
 
+Fixpoint conj_norm_converter (p :form) : form :=
+  match  p with
+  | land B1 B2 => land (conj_norm_converter B1) (conj_norm_converter B2)
+  | lor B1 B2 => or_cnf_cnf (conj_norm_converter B1) (conj_norm_converter B2)
+  | _ => p
+  end.
+
+
+
+
+Definition A := (Id "A").
+Definition B := (Id "B").
+Definition C := (Id "C").
+Definition D := (Id "D").
+Definition E := (Id "E").
+
+Definition f := (lor (lor (land  (not (var A)) (var B)) (var C) ) (land (var D) (var E))).
+
+Eval compute in (conj_norm_converter f).
+
+
+(*TODO*)
 Lemma converter_land : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (land p1 p2)) =interp V (neg_norm_converter false p1) && interp V (neg_norm_converter false p2)  .
 Proof.
   intros.
@@ -50,13 +60,13 @@ Proof.
   destruct p1,p2;(try unfold interp;reflexivity).
   Qed.  
 
-Lemma mapsto_false_interp:forall (V : valuation) (p1 p2:form),
-    interp V (neg_norm_converter false (lor (not p1) p2)) = interp V (neg_norm_converter false (mapsto p1 p2)).
+
+Lemma converter_mapsto : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (mapsto p1 p2)) = (negb (interp V (neg_norm_converter false p1))) || interp V (neg_norm_converter false p2)  .
 Proof.
   intros.
-  destruct p1 eqn:P1, p2 eqn:P2;
-    unfold interp; reflexivity.
-Qed.
+  destruct p1 eqn:P1, p2 eqn:P2;unfold neg_norm_converter;rewrite <-mapsto_interp;try reflexivity.
+  Qed.
+
 
 Lemma not_interp: forall (V : valuation) (p:form), interp V (not  p) = negb (interp V  p) .
 Proof.
@@ -70,16 +80,6 @@ Proof.
   intros.
   destruct p eqn:P;unfold neg_norm_converter;try (rewrite <-not_interp);try reflexivity.
 Qed.
-
-  
-Lemma converter_mapsto : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (mapsto p1 p2)) =  (interp V (neg_norm_converter true p1)) || interp V (neg_norm_converter false p2)  .
-Proof.
-  intros.
-  
-  induction p1 ;rewrite <-mapsto_false_interp;
-    try reflexivity;
-    try (destruct b; reflexivity).
-  Qed.
 
 Lemma bool_interp: forall(V : valuation) (b:Datatypes.bool), negb (interp V (bool b)) = interp V (bool (negb b)).
 Proof.
@@ -110,7 +110,7 @@ Proof.
     rewrite negb_orb. now repeat  rewrite <- negb_involutive_reverse.
   - rewrite converter_mapsto.
     apply negb_swap in IHp2.  rewrite IHp2;simpl.
-    rewrite negb_orb. apply negb_swap in IHp1.   rewrite IHp1. now repeat  rewrite <- negb_involutive_reverse.
+    rewrite negb_orb. now repeat  rewrite <- negb_involutive_reverse.
   - rewrite converter_not_1. simpl. apply negb_swap in IHp. symmetry. assumption.
 Qed.     
 
@@ -129,7 +129,6 @@ Proof.
   - rewrite converter_mapsto.
     rewrite mapsto_interp.
     rewrite IHp1, IHp2.
-    rewrite converter_not_2.
     reflexivity.
   - rewrite converter_not_1.
     rewrite not_interp.
@@ -190,7 +189,7 @@ Lemma true_false : forall (p:form),is_neg_normal (neg_norm_converter true p) =  
      - simpl.
        now rewrite IHp1, IHp2.
      - simpl.
-       now rewrite IHp1, IHp2.
+       now rewrite IHp2.
      - simpl. symmetry. assumption.
 Qed.
      
@@ -206,11 +205,7 @@ Proof.
     rewrite IHp1; rewrite IHp2;
     reflexivity).
   - simpl.
-    rewrite true_false.
-    rewrite IHp1, IHp2.
-    reflexivity.
-  - simpl.
-    now rewrite true_false.    
+    now rewrite true_false.
 Qed.
 
 (*  Can't just prove  is_neg_normal (neg_norm_converter true p) = true ->   is_neg_normal (neg_norm_converter false p) =true

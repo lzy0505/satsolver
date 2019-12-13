@@ -1,34 +1,12 @@
 Require Import Formula.
-From Coq Require Import Lists.ListSet.
-Require List. 
-Import ListNotations.
-
-Definition satisfiable (p : form) : Prop:=
-  exists V : valuation, interp V p = true.
-
-Module Test_satisfiable.
-
- Definition x := (var (Id "x")).
- Definition y := (var (Id "y")).
-
- Lemma test1 : satisfiable (land (lor x (not y)) (lor (not x) y)).
- Proof.
-   unfold satisfiable.
-   now exists (override (override empty_valuation (Id "x") false) (Id "y") false).
-Qed.
-              
- Lemma test2 : satisfiable (mapsto (not y) (lor x y)).
- Proof.
-   unfold satisfiable.
-   now exists (override (override empty_valuation (Id "x") true) (Id "y") false).
- Qed.
-
-End Test_satisfiable.
+Require Import Lists.ListSet.
+Require Import Lists.List.
+Import Lists.List.ListNotations. 
 
 Fixpoint collect_var (p : form) : (set id):=
   match p with
   | var i => (set_add  id_eq_dec i nil)
-  | bool _ => nil
+  | boolv _ => nil
   | land f1 f2 => set_union id_eq_dec (collect_var f1)  (collect_var f2)
   | lor f1 f2 => set_union  id_eq_dec (collect_var f1) (collect_var f2)
   | mapsto f1 f2 => set_union id_eq_dec (collect_var f1) (collect_var f2)
@@ -180,6 +158,6 @@ Definition find_valuation' (p : form) : list (option Datatypes.bool) :=
   let vals := (enum_valuation ids) in
   apply_list (try_valuation vals p) ids.
  
- Eval compute in (find_valuation' (land (land x (not x)) (bool true))). 
+ Eval compute in (find_valuation' (land (land x (not x)) (boolv true))). 
 
 End Test_find_valuation.

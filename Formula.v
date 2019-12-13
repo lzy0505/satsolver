@@ -1,10 +1,11 @@
-From Coq Require Import Bool.Bool.
-From Coq Require Import Strings.String.
+Require Import Bool.Bool.
+Require Import Strings.String.
 Export Bool.Bool.
+Export Strings.String.
 
 (** Identifier of the var is implement with string. *)
-Inductive id : Type :=
-| Id (n : string).
+Inductive id  :=
+| Id : string -> id.
 
 (** TODO*)
 Definition eqb_string (x y : string) : bool :=
@@ -31,7 +32,7 @@ Defined. (* TODO make defined, since we will unfold it*)
 (** Define formula. *)
 Inductive form :=
 | var : id-> form
-| bbool : bool ->form
+| boolv : bool ->form
 | land : form -> form -> form
 | lor : form -> form -> form
 | mapsto : form -> form -> form
@@ -41,7 +42,7 @@ Inductive form :=
 (** Define valuation of the formula. *)
 Definition valuation := id -> bool.
 Definition empty_valuation : valuation := fun x => false.
-Definition override (V : valuation) (x : id) (b : Datatypes.bool) : valuation :=
+Definition override (V : valuation) (x : id) (b : bool) : valuation :=
   fun y => if eqb_id x y then b else V y.
 
 (** Exercise 2.3 *)
@@ -49,7 +50,7 @@ Definition override (V : valuation) (x : id) (b : Datatypes.bool) : valuation :=
 Fixpoint interp (V : valuation) (p : form) : bool :=
   match p with
   | var i => (V i)
-  | bbool b => b
+  | boolv b => b
   | land f1 f2 => andb (interp V f1) (interp V f2)
   | lor f1 f2 => orb (interp V f1) (interp V f2)
   | mapsto f1 f2 => orb  (negb (interp V f1)) (interp V f2)
@@ -63,7 +64,7 @@ Module Test_override.
 
  Check (land (lor x (not y)) (lor (not x) y) ).
  Check (mapsto (not y) (lor x y) ).
- Check (land (land x (not x)) (bbool true)).
+ Check (land (land x (not x)) (boolv true)).
 
  Definition context := override (override empty_valuation (Id "x") false) (Id "y") true.
 
@@ -78,7 +79,7 @@ End Test_override.
 Ltac split_andb_ture H :=
   symmetry in H;
   apply andb_true_eq in H;
-destruct H as [H H0];
+  destruct H as [H H0];
   symmetry in  H,H0.
 
 (** 
@@ -156,3 +157,26 @@ Proof.
     apply negb_true_iff. (*same as mapsto*)
     assumption.
 Qed.
+
+(**Define satisfiable of a formula*)
+Definition satisfiable (p : form) : Prop:=
+  exists V : valuation, interp V p = true.
+
+Module Test_satisfiable.
+  Definition x := (var (Id "x")).
+  Definition y := (var (Id "y")).
+  
+  (** Exercise 2.4 *)
+  Lemma test1 : satisfiable (land (lor x (not y)) (lor (not x) y)).
+  Proof.
+    unfold satisfiable.
+    now exists (override (override empty_valuation (Id "x") false) (Id "y") false).
+  Qed.
+  
+  Lemma test2 : satisfiable (mapsto (not y) (lor x y)).
+  Proof.
+    unfold satisfiable.
+    now exists (override (override empty_valuation (Id "x") true) (Id "y") false).
+  Qed.
+  
+End Test_satisfiable.

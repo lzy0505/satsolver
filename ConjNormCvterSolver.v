@@ -89,6 +89,7 @@ Proof.
 Qed.
 
 
+
 Fixpoint is_disj_normal (p : form) : Datatypes.bool :=
   match p with
   | land p1 p2 =>  false
@@ -136,7 +137,11 @@ Proof.
   - rewrite IHp1_1, IHp1_2.
     btauto.
 Qed.
- 
+
+
+(*got stucked here if use equivalent:
+is_conj_normal (or_cnf_cnf p1 p2) =true <-> is_conj_normal p1 =true && is_conj_normal p2=true
+*)
 Lemma not_conj : forall (p:form), is_conj_normal (neg_conj_converter (neg_norm_converter false p))= is_conj_normal (neg_conj_converter (neg_norm_converter true p)).
   Proof.
     intros.
@@ -246,23 +251,21 @@ Qed.
 (*TODO*)
 
 Definition solver (p : form) :Datatypes.bool:=
-  match find_valuation (neg_norm_converter false p) with
+  match find_valuation (conj_norm_converter p) with
   | Some _ => true
   | None => false
   end.
 
 
-
-
-Lemma land_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (land p1 p2))=Some V -> interp V p1=true /\ interp V p2=true.
+Lemma land_find_interp: forall p1 p2 V, find_valuation (conj_norm_converter  (land p1 p2))=Some V -> interp V p1=true /\ interp V p2=true.
 Proof.
   intros.
   split;
     unfold find_valuation in H;
     unfold try_valuation in H;
-    induction (enum_valuation (collect_var (neg_norm_converter false (land p1 p2)))); (*add optimizer*)
+    induction (enum_valuation (collect_var (conj_norm_converter  (land p1 p2)))); (*add optimizer*)
     try (discriminate H);
-    try (rewrite <-converter_correctness in H;
+    try (rewrite <-conj_converter_correctness in H;
          destruct (interp a (land p1 p2)) eqn: E1); (*rewrite to the old proof*)
     try(inversion H;
         apply land_interp_interp in E1;
@@ -277,13 +280,13 @@ Proof.
 
 
 
-Lemma lor_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (lor p1 p2))=Some V -> interp V p1=true \/ interp V p2=true.
+Lemma lor_find_interp: forall p1 p2 V, find_valuation (conj_norm_converter (lor p1 p2))=Some V -> interp V p1=true \/ interp V p2=true.
 Proof.
   intros.
   unfold find_valuation, try_valuation in H.
-  induction (enum_valuation (collect_var (neg_norm_converter false (lor p1 p2)))). (*add optimizer*)
+  induction (enum_valuation (collect_var (conj_norm_converter (lor p1 p2)))). (*add optimizer*)
   - discriminate H.
-  - rewrite <-converter_correctness in H.
+  - rewrite <-conj_converter_correctness in H.
     destruct (interp a (lor p1 p2)) eqn: E1.
     + inversion H.
       apply lor_interp_interp in E1.
@@ -296,13 +299,13 @@ Qed.
 
 
 
-Lemma mapsto_find_interp: forall p1 p2 V, find_valuation (neg_norm_converter false (mapsto p1 p2))=Some V -> interp V p1=false \/ interp V p2=true.
+Lemma mapsto_find_interp: forall p1 p2 V, find_valuation (conj_norm_converter (mapsto p1 p2))=Some V -> interp V p1=false \/ interp V p2=true.
 Proof.
   intros.
   unfold find_valuation,try_valuation in H.
-  induction (enum_valuation (collect_var (neg_norm_converter false (mapsto p1 p2)))).
+  induction (enum_valuation (collect_var (conj_norm_converter (mapsto p1 p2)))).
     - discriminate H.
-    - rewrite <-converter_correctness in H.
+    - rewrite <-conj_converter_correctness in H.
       destruct (interp a (mapsto p1 p2)) eqn: E1.    
        + inversion H.
          apply mapsto_interp_interp in E1.
@@ -314,13 +317,13 @@ Qed.
 
 
 
-Lemma not_find_interp: forall p V, find_valuation (neg_norm_converter false (not p))=Some V -> interp V p=false.
+Lemma not_find_interp: forall p V, find_valuation (conj_norm_converter (not p))=Some V -> interp V p=false.
 Proof.
   intros.
   unfold find_valuation, try_valuation in H.
-  induction (enum_valuation (collect_var (neg_norm_converter false (not p)))).
+  induction (enum_valuation (collect_var (conj_norm_converter (not p)))).
   - discriminate H.
-  - rewrite <-converter_correctness in H.
+  - rewrite <-conj_converter_correctness in H.
     destruct (interp a (not p)) eqn: E1.
     + inversion H.
       apply not_interp_interp in E1.
@@ -330,44 +333,49 @@ Proof.
       apply H.
 Qed.
 
-
- 
 Lemma solver_sound : forall p, solver p = true -> satisfiable p.
 Proof.
   intros.
-  destruct p;unfold satisfiable;unfold solver in H. 
+  destruct p;
+    unfold satisfiable;
+    unfold solver in H. 
   - (*var*)
     exists (override empty_valuation i true).
     simpl.
     unfold override.
     now rewrite  <- beq_id_refl.
   - (*bool*)
-    destruct (find_valuation (neg_norm_converter false (bool b))) eqn:E in H;(try discriminate H).
+    destruct (find_valuation (conj_norm_converter (bool b))) eqn:E in H;
+      (try discriminate H).
     unfold find_valuation in E.  
     simpl in E.
     destruct b.    
     now exists v.
     discriminate E.
   -  (*land*)
-    destruct (find_valuation (neg_norm_converter false (land p1 p2))) eqn:E in H;(try discriminate H).
+    destruct (find_valuation (conj_norm_converter (land p1 p2))) eqn:E in H;
+      (try discriminate H).
     exists v.
     apply land_interp_interp.
     apply land_find_interp in E.
     assumption.
   - (*lor*)
-    destruct (find_valuation (neg_norm_converter false (lor p1 p2))) eqn:E in H;try(discriminate H).
+    destruct (find_valuation (conj_norm_converter (lor p1 p2))) eqn:E in H;
+      try(discriminate H).
     exists v.
     apply lor_interp_interp.
     apply lor_find_interp in E.
     assumption.
   - (* mapsto*)   
-    destruct (find_valuation (neg_norm_converter false (mapsto p1 p2))) eqn:E in H;try(discriminate H).
+    destruct (find_valuation (conj_norm_converter (mapsto p1 p2))) eqn:E in H;
+      try(discriminate H).
     exists v.
     apply mapsto_interp_interp.
     apply mapsto_find_interp in E.
     assumption.
   - (* not*)   
-    destruct (find_valuation (neg_norm_converter false (not p))) eqn:E in H;try(discriminate H).
+    destruct (find_valuation (conj_norm_converter (not p))) eqn:E in H;
+      try(discriminate H).
     exists v.
     apply not_interp_interp.
     apply not_find_interp in E.

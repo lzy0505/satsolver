@@ -1,7 +1,8 @@
-Require Import Formula Find FormOptSolver.
+Require Import Formula Find FormOptSolver NegNormCvtrSolver.
 From Coq Require Import Lists.ListSet.
 From Coq Require Import Strings.String.
 Import ListNotations.
+Require Import Btauto.
 
 
 Fixpoint or_clus_cnf (C A : form)  : form :=
@@ -18,10 +19,10 @@ Fixpoint or_cnf_cnf (A1 A2 : form)  : form :=
 
 
 
-Fixpoint conj_norm_converter (p :form) : form :=
+Fixpoint neg_conj_converter (p :form) : form :=
   match  p with
-  | land B1 B2 => land (conj_norm_converter B1) (conj_norm_converter B2)
-  | lor B1 B2 => or_cnf_cnf (conj_norm_converter B1) (conj_norm_converter B2)
+  | land B1 B2 => land (neg_conj_converter B1) (neg_conj_converter B2)
+  | lor B1 B2 => or_cnf_cnf (neg_conj_converter B1) (neg_conj_converter B2)
   | _ => p
   end.
 
@@ -36,245 +37,213 @@ Definition E := (Id "E").
 
 Definition f := (lor (lor (land  (not (var A)) (var B)) (var C) ) (land (var D) (var E))).
 
-Eval compute in (conj_norm_converter f).
+Eval compute in (neg_conj_converter f).
 
-
-(*TODO*)
-Lemma converter_land : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (land p1 p2)) =interp V (neg_norm_converter false p1) && interp V (neg_norm_converter false p2)  .
+Lemma or_clus_cnf_correctness: forall (V : valuation) (p1 p2:form), interp V (or_clus_cnf p1 p2) = interp V  p2 || interp V  p1.
 Proof.
   intros.
-  destruct p1 eqn:P1, p2 eqn:P2;unfold neg_norm_converter;rewrite <-land_interp;try reflexivity.
+  induction p2; simpl;try reflexivity.
+  - rewrite IHp2_1.
+    rewrite IHp2_2.
+    btauto.
 Qed.
 
 
-Lemma converter_lor : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (lor p1 p2)) =interp V (neg_norm_converter false p1) || interp V (neg_norm_converter false p2)  .
+Lemma or_cnf_cnf_correctness: forall (V : valuation) (p1 p2:form), interp V (or_cnf_cnf p1 p2) = interp V  p2 || interp V  p1.
 Proof.
   intros.
-  destruct p1 eqn:P1, p2 eqn:P2;unfold neg_norm_converter;rewrite <-lor_interp;try reflexivity.
+  induction p1;simpl;try reflexivity;try apply or_clus_cnf_correctness.
+  - rewrite IHp1_1.
+    rewrite IHp1_2.
+    btauto.
 Qed.
 
 
-Lemma mapsto_interp: forall (V : valuation) (p1 p2:form), interp V (mapsto p1 p2) = negb (interp V  p1) ||(interp V  p2).
+Definition conj_norm_converter ( p :form) : form :=
+  neg_conj_converter (neg_norm_converter false p).
+
+
+
+Lemma neg_conj_converter_correctness: forall (V : valuation) (p:form), interp V p = interp V (neg_conj_converter p).
 Proof.
-  intros.
-  destruct p1,p2;(try unfold interp;reflexivity).
-  Qed.  
-
-
-Lemma converter_mapsto : forall (V : valuation) (p1 p2:form), interp V (neg_norm_converter false (mapsto p1 p2)) = (negb (interp V (neg_norm_converter false p1))) || interp V (neg_norm_converter false p2)  .
-Proof.
-  intros.
-  destruct p1 eqn:P1, p2 eqn:P2;unfold neg_norm_converter;rewrite <-mapsto_interp;try reflexivity.
-  Qed.
-
-
-Lemma not_interp: forall (V : valuation) (p:form), interp V (not  p) = negb (interp V  p) .
-Proof.
-  intros.
-  destruct p;(try unfold interp;reflexivity).
-  Qed.  
-
-
-Lemma converter_not_1 : forall (V : valuation) (p:form), interp V (neg_norm_converter false (not p)) = interp V (neg_norm_converter true p).
-Proof.
-  intros.
-  destruct p eqn:P;unfold neg_norm_converter;try (rewrite <-not_interp);try reflexivity.
-Qed.
-
-Lemma bool_interp: forall(V : valuation) (b:Datatypes.bool), negb (interp V (bool b)) = interp V (bool (negb b)).
-Proof.
-  intros.
-  unfold interp.
-  reflexivity.
-Qed.
-
-Lemma negb_swap : forall (a b : Datatypes.bool), negb a = b -> a = negb b.
-Proof.
-  intros.
-  rewrite <-H.
-  Search negb.
-  apply negb_involutive_reverse.
-Qed.
-
-Lemma converter_not_2:forall (V : valuation) (p:form),  negb (interp V (neg_norm_converter false p)) =
-                                                        interp V (neg_norm_converter true p).
-Proof.
-  intros.
-  induction p;try (unfold neg_norm_converter;  reflexivity).
-  - unfold neg_norm_converter;destruct b;reflexivity.
-  - rewrite converter_land.
-    try (apply negb_swap in IHp1; apply negb_swap in IHp2; rewrite IHp1; rewrite IHp2;simpl).
-     rewrite negb_andb. now repeat  rewrite <- negb_involutive_reverse.
-  - rewrite converter_lor.
-    try (apply negb_swap in IHp1; apply negb_swap in IHp2; rewrite IHp1; rewrite IHp2;simpl).
-    rewrite negb_orb. now repeat  rewrite <- negb_involutive_reverse.
-  - rewrite converter_mapsto.
-    apply negb_swap in IHp2.  rewrite IHp2;simpl.
-    rewrite negb_orb. now repeat  rewrite <- negb_involutive_reverse.
-  - rewrite converter_not_1. simpl. apply negb_swap in IHp. symmetry. assumption.
-Qed.     
-
   
-Lemma converter_correctness: forall (V : valuation) (p:form), interp V p = interp V (neg_norm_converter false p).
+  induction p;try reflexivity.
+  - simpl.
+    rewrite IHp1.
+    rewrite IHp2.
+    reflexivity.
+  - simpl.
+    rewrite or_cnf_cnf_correctness.
+    rewrite IHp1, IHp2.
+    btauto.
+Qed.
+
+
+Lemma conj_converter_correctness: forall (V : valuation) (p:form), interp V p = interp V (conj_norm_converter p).
 Proof.
-  induction p;try (unfold neg_norm_converter; reflexivity).
-  - rewrite converter_land.
-    rewrite land_interp.
-    rewrite IHp1, IHp2.
-    reflexivity.
-  - rewrite converter_lor.
-    rewrite lor_interp.
-    rewrite IHp1, IHp2.
-    reflexivity.
-  - rewrite converter_mapsto.
-    rewrite mapsto_interp.
-    rewrite IHp1, IHp2.
-    reflexivity.
-  - rewrite converter_not_1.
-    rewrite not_interp.
-    rewrite IHp.
-    destruct p; try (unfold neg_norm_converter;rewrite not_interp;reflexivity);try (apply converter_not_2).
-  Qed.
-  
+  intros.
+  unfold conj_norm_converter.
+  transitivity (interp V  (neg_norm_converter false p)).
+  apply converter_correctness.
+  apply neg_conj_converter_correctness.
+Qed.
 
 
-
-(*
-Doesn't work.
-Recursive call to neg_norm_converter has principal argument equal
-to "lor (not p1) (not p2)" instead of
-one of the following variables: "f" "p1"
-"p2".
-
-Fixpoint neg_norm_converter (p :form) : form :=
+Fixpoint is_disj_normal (p : form) : Datatypes.bool :=
   match p with
-  | var _ => p
-  | bool _ => p
-  | land p1 p2 => land (neg_norm_converter p1) (neg_norm_converter p2)
-  | lor p1 p2 => lor (neg_norm_converter p1) (neg_norm_converter p2)
-  | mapsto p1 p2 => mapsto (neg_norm_converter p1) (neg_norm_converter p2)
-  | not (var _ ) => p
-  | not (bool true) => bool false
-  | not (bool false) => bool true            
-  | not (land p1 p2) => (neg_norm_converter (lor (not p1) (not p2))) 
-  | not (lor p1 p2) => land  (neg_norm_converter (not p1))  (neg_norm_converter (not p2))
-  | not (mapsto p1 p2) => land  (neg_norm_converter  p1)  (neg_norm_converter (not p2))                     
-  | not (not p1) => (neg_norm_converter p1)
-  end.*)
-
-Fixpoint is_neg_normal  (p : form) : Datatypes.bool :=
-  match p with
-  | var _ => true
-  | bool _ => true
-  | land p1 p2 =>  is_neg_normal p1 && is_neg_normal p2
-  | lor p1 p2 =>  is_neg_normal p1 && is_neg_normal p2
-  | mapsto p1 p2 =>  is_neg_normal p1 && is_neg_normal p2  
-  | not (var _ ) => true
-  | not (bool _) => false
-  | not (land _ _) => false
-  | not (lor _ _) => false
-  | not (mapsto _ _) => false
-  | not (not _) => false                   
+  | land p1 p2 =>  false
+  | lor p1 p2 =>  is_disj_normal p1 && is_disj_normal p2
+  | mapsto _ _ => false
+  | _ => true                
   end.
 
+Fixpoint is_conj_normal (p : form) : Datatypes.bool :=
+  match p with
+  | land p1 p2 =>  is_conj_normal p1 && is_conj_normal p2
+  | lor p1 p2 =>  is_disj_normal  p1 && is_disj_normal p2
+  | mapsto _ _ => false
+  | _ => true                
+  end.
 
-Lemma true_false : forall (p:form),is_neg_normal (neg_norm_converter true p) =  is_neg_normal (neg_norm_converter false p).
+Eval compute in (is_conj_normal  (lor (var B) (var A))).
+
+Definition real_is_conj_normal (p : form) : Datatypes.bool :=
+  is_conj_normal p && is_neg_normal p.
+
+
+Lemma disj_conj :forall (p:form), is_disj_normal p = true -> is_conj_normal p = true.
+Proof.
+  intros.
+  destruct p;try reflexivity.
+  - simpl in H. discriminate H.
+  - simpl in H. simpl. assumption.
+  - simpl in H. simpl. assumption.
+Qed.
+ 
+
+Lemma disj_eq:forall (p1 p2:form), is_conj_normal (or_clus_cnf p1 p2) = is_disj_normal p1 && is_conj_normal p2.
+Proof.
+  intros.
+  induction p2;simpl;try reflexivity;try btauto.
+  - rewrite IHp2_1, IHp2_2.
+    btauto.
+Qed.
+
+Lemma conj_eq:forall (p1 p2:form), is_conj_normal (or_cnf_cnf p1 p2) = is_conj_normal p1 && is_conj_normal p2.
+Proof.
+  intros.
+  induction p1;simpl;try(rewrite disj_eq;reflexivity).
+  - rewrite IHp1_1, IHp1_2.
+    btauto.
+Qed.
+ 
+Lemma not_conj : forall (p:form), is_conj_normal (neg_conj_converter (neg_norm_converter false p))= is_conj_normal (neg_conj_converter (neg_norm_converter true p)).
   Proof.
     intros.
-    induction  p;
-      try reflexivity;
-      try (destruct b; reflexivity).
-     - simpl.
-       now rewrite IHp1, IHp2.
-     - simpl.
-       now rewrite IHp1, IHp2.
-     - simpl.
-       now rewrite IHp2.
-     - simpl. symmetry. assumption.
+    induction p;simpl.
+    - reflexivity.
+    - destruct b;reflexivity.
+    - rewrite conj_eq.
+      rewrite IHp1, IHp2.
+      reflexivity.
+    - rewrite conj_eq.
+      rewrite IHp1, IHp2.
+      reflexivity.
+    - rewrite conj_eq.
+      rewrite IHp1, IHp2.
+      reflexivity.
+    - symmetry in IHp.
+      assumption.
 Qed.
-     
-    
 
-Lemma converter_correctness_2: forall (p:form), is_neg_normal (neg_norm_converter false  p) = true.
+ 
+
+Lemma conj_converter_correctness_2: forall (p:form), is_conj_normal (conj_norm_converter  p) = true.
 Proof.
   intro.
   induction p;
-    try (unfold neg_norm_converter;  reflexivity);
-    try (unfold neg_norm_converter; unfold is_neg_normal;
-    unfold neg_norm_converter, is_neg_normal in IHp1, IHp2;
-    rewrite IHp1; rewrite IHp2;
-    reflexivity).
-  - simpl.
-    now rewrite true_false.
+    try (reflexivity);
+    unfold conj_norm_converter;
+    simpl;
+    try(try (rewrite conj_eq);
+        unfold conj_norm_converter in IHp1, IHp2;
+        rewrite IHp1, IHp2;
+        reflexivity).
+  - (*mapsto case, handle the not with not_conj*)
+    rewrite conj_eq.
+    unfold conj_norm_converter in IHp1.
+    rewrite not_conj in IHp1.
+    rewrite IHp1.
+    assumption.
+  - (*not case, handle the not with not_conj*)
+    unfold conj_norm_converter in IHp.
+    rewrite not_conj in IHp.
+    assumption.
 Qed.
 
-(*  Can't just prove  is_neg_normal (neg_norm_converter true p) = true ->   is_neg_normal (neg_norm_converter false p) =true
-it will cause cycle prove!
-if you want to prove this , you need prove is_neg_normal (neg_norm_converter false p) = true ->   is_neg_normal (neg_norm_converter true p) =true
- if you do so ,you need to prove the first one.
 
-induction  p;
-      try reflexivity;
-      try (destruct b; reflexivity);
-      try (simpl;
-           simpl in IHp;
-           symmetry in IHp;
-           apply andb_true_eq  in IHp;
-           destruct IHp;
-           symmetry in H, H0;
-           apply IHp1 in H;
-           apply IHp2 in H0;
-           now rewrite H,H0).
-    + simpl;
-        simpl in IHp;
-        symmetry in IHp;
-        apply andb_true_eq  in IHp;
-        destruct IHp;
-        symmetry in H, H0;
-        apply IHp2 in H0;
-        now rewrite H,H0.
-    + simpl;simpl in IHp.
-cycle!!
-       induction  p;
-      try reflexivity;
-      try (destruct b; reflexivity).
-      * simpl;
-           simpl in IHp;
-           symmetry in IHp;
-           apply andb_true_eq  in IHp;
-           destruct IHp;
-           symmetry in H, H0;
-        apply IHp1 in H;
-           apply IHp2 in H0.
-             now rewrite H,H0.
-           try(  intro; assumption).
-           try(  intro; assumption).
-           try(  intro; assumption).
-       *  simpl;
-           simpl in IHp;
-           symmetry in IHp;
-           apply andb_true_eq  in IHp;
-           destruct IHp;
-           symmetry in H, H0;
-        apply IHp1 in H;
-           apply IHp2 in H0.
-             now rewrite H,H0.
-           try(  intro; assumption).
-           try(  intro; assumption).
-           try(  intro; assumption).
-       *simpl;
-           simpl in IHp;
-           symmetry in IHp;
-           apply andb_true_eq  in IHp;
-           destruct IHp;
-           symmetry in H, H0.
-           apply IHp2 in H0.
-           now rewrite H,H0.
-           try(  intro; assumption).
-       *  simpl;
-            simpl in IHp, IHp0, IHp1. ???*)
+Lemma disj_eq_2:forall (p1 p2:form), is_neg_normal (or_clus_cnf p1 p2) = is_neg_normal p1 && is_neg_normal p2.
+Proof.
+  intros.
+  induction p2;simpl;try reflexivity;try btauto.
+  - rewrite IHp2_1, IHp2_2.
+    btauto.
+Qed.
 
 
+Lemma conj_eq_2:forall (p1 p2:form), is_neg_normal (or_cnf_cnf p1 p2) = is_neg_normal p1 && is_neg_normal p2.
+Proof.
+  intros.
+  induction p1;simpl;try(rewrite disj_eq_2;reflexivity).
+  - rewrite IHp1_1, IHp1_2.
+    btauto.
+Qed.
+
+
+Lemma not_conj_2 : forall (p:form), is_neg_normal (neg_conj_converter (neg_norm_converter false p))= is_neg_normal (neg_conj_converter (neg_norm_converter true p)).
+  Proof.
+    intros.
+    induction p;simpl;
+      try (try(destruct b);
+           reflexivity);
+      try (rewrite conj_eq_2;
+           rewrite IHp1, IHp2;
+           reflexivity).
+    - symmetry in IHp.
+      assumption.
+Qed.
+
+Lemma conj_converter_correctness_3: forall (p:form), is_neg_normal (conj_norm_converter  p) = true.
+Proof.
+  intros.
+  induction p;
+    try (reflexivity);
+    unfold conj_norm_converter;
+    simpl;
+    try(try (rewrite conj_eq_2);
+        unfold conj_norm_converter in IHp1, IHp2;
+        rewrite IHp1, IHp2;
+        reflexivity).
+  - rewrite conj_eq_2.
+    unfold conj_norm_converter in IHp1.
+    rewrite not_conj_2 in IHp1.
+    rewrite IHp1.
+    assumption.
+  - (*not case, handle the not with not_conj*)
+    unfold conj_norm_converter in IHp.
+    rewrite not_conj_2 in IHp.
+    assumption.
+Qed.
+
+Lemma conj_converter_correctness_real: forall (p:form), real_is_conj_normal (conj_norm_converter  p) = true.
+Proof.
+  intros.
+  unfold real_is_conj_normal.
+  rewrite conj_converter_correctness_2.
+  now rewrite conj_converter_correctness_3.
+Qed.
+
+(*TODO*)
 
 Definition solver (p : form) :Datatypes.bool:=
   match find_valuation (neg_norm_converter false p) with

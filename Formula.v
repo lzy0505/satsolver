@@ -28,23 +28,6 @@ Proof.
   apply string_dec.
 Defined. (* TODO make defined, since we will unfold it*)
 
-(** String reflexivity, from LF *)
-Theorem eqb_string_refl : forall s : string, true = eqb_string s s.
-Proof. intros s. unfold eqb_string. destruct (string_dec s s) as [|Hs].
-  - reflexivity.
-  - destruct Hs. reflexivity.
-Qed.
-
-(** Reflexivity of id *)
-Theorem eqb_id_refl : forall i : id, true = eqb_id i i.
-Proof.
-  intros.
-  unfold  eqb_id.
-  destruct i.
-  apply eqb_string_refl.
-Qed.
-
-
 (** Exercise 2.1 *)
 (** Define formula. *)
 Inductive form :=

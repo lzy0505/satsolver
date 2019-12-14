@@ -28,6 +28,23 @@ Proof.
   apply string_dec.
 Defined. (* TODO make defined, since we will unfold it*)
 
+(** String reflexivity, from LF *)
+Theorem eqb_string_refl : forall s : string, true = eqb_string s s.
+Proof. intros s. unfold eqb_string. destruct (string_dec s s) as [|Hs].
+  - reflexivity.
+  - destruct Hs. reflexivity.
+Qed.
+
+(** Reflexivity of id *)
+Theorem eqb_id_refl : forall i : id, true = eqb_id i i.
+Proof.
+  intros.
+  unfold  eqb_id.
+  destruct i.
+  apply eqb_string_refl.
+Qed.
+
+
 (** Exercise 2.1 *)
 (** Define formula. *)
 Inductive form :=
@@ -70,17 +87,19 @@ Module Test_override.
 
 End Test_override.
 
-
 (** 
     Define a tactic that we use a lot.
     For a bool equaltion as a && b = ture in the assumption, 
     it can be splited into a = true and b = true
  **)
-Ltac split_andb_ture H :=
+Ltac split_andb_true H :=
   symmetry in H;
   apply andb_true_eq in H;
   destruct H as [H H0];
   symmetry in  H,H0.
+
+
+
 
 (** 
     Helper lemmas for interp, which define the equavalence between interperation of a formula and its sub-formula(s).
@@ -100,7 +119,7 @@ Proof.
     now rewrite H,H0.
   - (* <- *)
     split;(*proofs for both sub-forms are same*)
-    split_andb_ture H;
+    split_andb_true H;
     assumption.
 Qed.
 

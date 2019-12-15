@@ -93,9 +93,6 @@ Definition solver (p : form) :bool:=
   end.
 
 
-(*Can't prove! Lemma solver_opt : forall p, find p = find (formula_optimizer p).*)
-
-
 Lemma find_interp: forall p V, find_valuation (formula_optimizer p)=Some V -> interp V p=true.
 Proof.
   intros.

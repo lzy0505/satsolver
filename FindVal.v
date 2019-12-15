@@ -91,19 +91,19 @@ Module Test_find_valuation.
  Definition x := (var (Id "x")).
  Definition y := (var (Id "y")).
 
- Definition apply_test (ov : option valuation) (i :id) :option Datatypes.bool :=
+ Definition apply_test (ov : option valuation) (i :id) :option bool :=
    match ov with
    |Some v => Some (v i)
    |None => None
    end.
 
- Fixpoint apply_list  (ov : option valuation) (l :list id) : list (option Datatypes.bool):=
+ Fixpoint apply_list  (ov : option valuation) (l :list id) : list (option bool):=
    match l with 
    |nil => []
    | x :: xs => (apply_test ov x) :: (apply_list ov xs)
    end.
  (**A variant that can show values in the found valuation.*)
- Definition find_valuation' (p : form) : list (option Datatypes.bool) :=
+ Definition find_valuation' (p : form) : list (option bool) :=
    let ids := collect_var p in
    let vals := (enum_valuation ids) in
    apply_list (try_valuation vals p) ids.

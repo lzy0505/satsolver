@@ -1,5 +1,4 @@
 Require Import Formula FindVal.
-Require Setoid. 
 
 
 (** Pure SAT solver. *)

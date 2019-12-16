@@ -1,26 +1,26 @@
 Require Import Formula FindVal NNFCvtrSolver.
 Require Import Btauto.
 
-(** Combine a disjunction form with a cnf*)
-Fixpoint or_disj_cnf (C A : form)  : form :=
-  match A with (* A is in cnf*)
-  | land B1 B2 => land (or_disj_cnf C B1) (or_disj_cnf C B2) (*distrubute C*)
-  | _ => lor A C (* A doesn't have land, just or!*)
+(** Combine a clause with a cnf*)
+Fixpoint or_clause_cnf (clause cnf : form)  : form :=
+  match cnf with 
+  | land cnf1 cnf2 => land (or_clause_cnf clause cnf1) (or_clause_cnf clause cnf2) (*distrubute clause*)
+  | _ => lor cnf clause (* cnf is clause*)
   end.
 
 (** Combine two cnfs. *)
-Fixpoint or_cnf_cnf (A1 A2 : form)  : form :=
-  match A1 with (*A1 is in cnf*)
-  | land B1 B2 => land (or_cnf_cnf B1 A2) (or_cnf_cnf B2 A2) (*distribute A2*)
-  | _ => or_disj_cnf A1 A2 (* A1 only has disjunction*)
+Fixpoint or_cnf_cnf (cnf1 cnf2 : form)  : form :=
+  match cnf1 with 
+  | land cnf11 cnf12 => land (or_cnf_cnf cnf11 cnf2) (or_cnf_cnf cnf12 cnf2) (*distribute cnf2*)
+  | _ => or_clause_cnf cnf1 cnf2 (* cnf1 is clause *)
   end.
 
 
 (** Conversion from nnf to cnf. *)
 Fixpoint nnf_cnf_converter (p :form) : form :=
   match  p with
-  | land B1 B2 => land (nnf_cnf_converter B1) (nnf_cnf_converter B2) (*ok, convert sub-formulas*)
-  | lor B1 B2 => or_cnf_cnf (nnf_cnf_converter B1) (nnf_cnf_converter B2) (*convert sub-formulas, and do or with or_cnf_cnf*)
+  | land p1 p2 => land (nnf_cnf_converter p1) (nnf_cnf_converter p2) (*ok, convert sub-formulas*)
+  | lor p1 p2 => or_cnf_cnf (nnf_cnf_converter p1) (nnf_cnf_converter p2) (*convert sub-formulas, and do or with or_cnf_cnf*)
   | _ => p
   end.
 
@@ -39,8 +39,8 @@ Eval compute in (nnf_cnf_converter f).
 
 End Test_cnf_converter.
 
-(** or_disj_cnf works like normal lor. *)
-Lemma or_disj_cnf_correctness: forall (V : valuation) (p1 p2:form), interp V (or_disj_cnf p1 p2) = interp V  p2 || interp V  p1.
+(** or_clause_cnf works like normal lor. *)
+Lemma or_clause_cnf_correctness: forall (V : valuation) (p1 p2:form), interp V (or_clause_cnf p1 p2) = interp V  p2 || interp V  p1.
 Proof.
   intros.
   induction p2; simpl;
@@ -56,7 +56,7 @@ Proof.
   intros.
   induction p1;simpl;
     try reflexivity;
-    try apply or_disj_cnf_correctness.
+    try apply or_clause_cnf_correctness.
   - rewrite IHp1_1. (* p1 = land p1_1 p1_2*)
     rewrite IHp1_2.
     btauto.
@@ -93,11 +93,11 @@ Proof.
 Qed.
 
 
-(** Check formula only has disjunction. *)
-Fixpoint is_disj (p : form) : bool :=
+(** Check formula only has clause. *)
+Fixpoint is_clause (p : form) : bool :=
   match p with
   | land p1 p2 =>  false
-  | lor p1 p2 =>  is_disj p1 && is_disj p2
+  | lor p1 p2 =>  is_clause p1 && is_clause p2
   | mapsto _ _ => false
   | _ => true                
   end.
@@ -106,7 +106,7 @@ Fixpoint is_disj (p : form) : bool :=
 Fixpoint is_cnf (p : form) : bool :=
   match p with
   | land p1 p2 =>  is_cnf p1 && is_cnf p2
-  | lor p1 p2 =>  is_disj  p1 && is_disj p2
+  | lor p1 p2 =>  is_clause  p1 && is_clause p2
   | mapsto _ _ => false
   | _ => true                
   end.
@@ -115,8 +115,8 @@ Fixpoint is_cnf (p : form) : bool :=
 Definition real_is_cnf (p : form) : bool :=
   is_cnf p && is_nnf p.
 
-(** Conditions to use or_disj_cnf. *)
-Lemma cnf_eq_disj_cnf:forall (p1 p2:form), is_cnf (or_disj_cnf p1 p2) = is_disj p1 && is_cnf p2.
+(** Conditions to use or_clause_cnf. *)
+Lemma cnf_eq_clause_cnf:forall (p1 p2:form), is_cnf (or_clause_cnf p1 p2) = is_clause p1 && is_cnf p2.
 Proof.
   intros.
   induction p2;simpl;try reflexivity;try btauto.
@@ -128,7 +128,7 @@ Qed.
 Lemma cnf_eq_cnf_cnf:forall (p1 p2:form), is_cnf (or_cnf_cnf p1 p2) = is_cnf p1 && is_cnf p2.
 Proof.
   intros.
-  induction p1;simpl;try(rewrite cnf_eq_disj_cnf;reflexivity).
+  induction p1;simpl;try(rewrite cnf_eq_clause_cnf;reflexivity).
   - rewrite IHp1_1, IHp1_2. (*land*)
     btauto.
 Qed.
@@ -185,8 +185,8 @@ Proof.
     assumption.
 Qed.
 
-(** or_disj_cnf keeps is_nnf. *)
-Lemma disj_cnf_keep_nnf:forall (p1 p2:form), is_nnf (or_disj_cnf p1 p2) = is_nnf p1 && is_nnf p2.
+(** or_clause_cnf keeps is_nnf. *)
+Lemma clause_cnf_keep_nnf:forall (p1 p2:form), is_nnf (or_clause_cnf p1 p2) = is_nnf p1 && is_nnf p2.
 Proof.
   intros.
   induction p2;simpl;
@@ -201,7 +201,7 @@ Lemma cnf_cnf_keep_nnf:forall (p1 p2:form), is_nnf (or_cnf_cnf p1 p2) = is_nnf p
 Proof.
   intros.
   induction p1;simpl;
-    try(rewrite disj_cnf_keep_nnf;reflexivity).
+    try(rewrite clause_cnf_keep_nnf;reflexivity).
   - rewrite IHp1_1, IHp1_2. (*land*)
     btauto.
 Qed.

@@ -77,7 +77,7 @@ Fixpoint try_valuation (lv: list valuation) (p : form) : option valuation :=
   end.
 
 
-(** Exercise 2.5*)
+(** Exercise 2.5 *)
 (** 
     Find a possible valuation that makes formual true.
     Collect variables, generate all valuations and try them.

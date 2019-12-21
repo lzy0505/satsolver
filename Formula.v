@@ -7,7 +7,7 @@ Export Strings.String.
 Inductive id  :=
 | Id : string -> id.
 
-(** TODO*)
+(** equality of string (from LF) *)
 Definition eqb_string (x y : string) : bool :=
   if string_dec x y then true else false.
 
@@ -26,7 +26,7 @@ Proof.
   destruct a,b.
   decide equality.
   apply string_dec.
-Defined. (* TODO make defined, since we will unfold it*)
+Defined. (* Defined, since we will unfold it*)
 
 (** Exercise 2.1 *)
 (** Define formula. *)

@@ -93,34 +93,36 @@ Proof.
 Qed.
 
 
-(** Check formula only has clause. *)
 Fixpoint is_clause (p : form) : bool :=
   match p with
+  | var _ => true
+  | boolv _ => true
   | land p1 p2 =>  false
   | lor p1 p2 =>  is_clause p1 && is_clause p2
   | mapsto _ _ => false
-  | _ => true                
+  | not (var _ ) => true (*only return true here*)
+  | not (boolv _) => false
+  | not (land _ _) => false
+  | not (lor _ _) => false
+  | not (mapsto _ _) => false
+  | not (not _) => false               
   end.
 
-(** Check formula is in cnf. *)
+
 Fixpoint is_cnf (p : form) : bool :=
   match p with
   | land p1 p2 =>  is_cnf p1 && is_cnf p2
   | lor p1 p2 =>  is_clause  p1 && is_clause p2
-  | mapsto _ _ => false
-  | _ => true                
+  | _ => is_clause p                
   end.
 
-(** Check formula is in cnf and nnf. *)
-Definition real_is_cnf (p : form) : bool :=
-  is_cnf p && is_nnf p.
 
 (** Conditions to use or_clause_cnf. *)
 Lemma cnf_eq_clause_cnf:forall (p1 p2:form), is_cnf (or_clause_cnf p1 p2) = is_clause p1 && is_cnf p2.
 Proof.
   intros.
-  induction p2;simpl;try reflexivity;try btauto.
-  - rewrite IHp2_1, IHp2_2. (* land *)
+  induction p2;try reflexivity; try (simpl;btauto).
+  - simpl. rewrite IHp2_1, IHp2_2. (* land *)
     btauto.
 Qed.
 
@@ -135,7 +137,7 @@ Qed.
 
 
 (*got stucked here if use equivalent:
-is_conj_normal (or_cnf_cnf p1 p2) =true <-> is_cnf p1 =true && is_cnf p2=true
+is_conj_normal (or_cnf_cnf p1 p2) =true <-> is_cnf p1 =true /\ is_cnf p2=true
  *)
 
 (** true/false doesn't effect is_cnf. *)
@@ -184,74 +186,6 @@ Proof.
     rewrite is_cnf_neg in IHp.
     assumption.
 Qed.
-
-(** or_clause_cnf keeps is_nnf. *)
-Lemma clause_cnf_keep_nnf:forall (p1 p2:form), is_nnf (or_clause_cnf p1 p2) = is_nnf p1 && is_nnf p2.
-Proof.
-  intros.
-  induction p2;simpl;
-    try reflexivity;
-    try btauto.
-  - rewrite IHp2_1, IHp2_2. (* land *)
-    btauto.
-Qed.
-
-(** or_cnf_cnf keeps is_nnf. *)
-Lemma cnf_cnf_keep_nnf:forall (p1 p2:form), is_nnf (or_cnf_cnf p1 p2) = is_nnf p1 && is_nnf p2.
-Proof.
-  intros.
-  induction p1;simpl;
-    try(rewrite clause_cnf_keep_nnf;reflexivity).
-  - rewrite IHp1_1, IHp1_2. (*land*)
-    btauto.
-Qed.
-
-(** true/false doesn't effect is_nnf. *)
-Lemma is_nnf_neg_cnf : forall (p:form), is_nnf (nnf_cnf_converter (nnf_converter false p))= is_nnf (nnf_cnf_converter (nnf_converter true p)).
-  Proof.
-    intros.
-    induction p;simpl;
-      try (try(destruct b); (*var and boolv *)
-           reflexivity);
-      try (rewrite cnf_cnf_keep_nnf; (*land lor mapsto*)
-           rewrite IHp1, IHp2;
-           reflexivity).
-    - symmetry in IHp. (*not*)
-      assumption.
-Qed.
-
-(** Conversion is correct for nnf. *)
-Lemma cnf_converter_nnf_correctness: forall (p:form), is_nnf (cnf_converter  p) = true.
-Proof.
-  intros.
-  induction p;
-    try (reflexivity);
-    unfold cnf_converter;
-    simpl;
-    try(try (rewrite cnf_cnf_keep_nnf); (* land lor*)
-        unfold cnf_converter in IHp1, IHp2;
-        rewrite IHp1, IHp2;
-        reflexivity).
-  - rewrite cnf_cnf_keep_nnf. (*mapsto case, handle the not with is_nnf_neg_cnf*)
-    unfold cnf_converter in IHp1.
-    rewrite is_nnf_neg_cnf in IHp1.
-    rewrite IHp1.
-    assumption.
-  - (*not case, handle the not with is_nnf_neg_cnf*)
-    unfold cnf_converter in IHp.
-    rewrite is_nnf_neg_cnf in IHp.
-    assumption.
-Qed.
-
-(** Conversion is really correct.*)
-Lemma cnf_converter_correctness_real: forall (p:form), real_is_cnf (cnf_converter  p) = true.
-Proof.
-  intros.
-  unfold real_is_cnf.
-  rewrite cnf_converter_cnf_correctness.
-  now rewrite cnf_converter_nnf_correctness.
-Qed.
-
 
 (** Integration *)
 Definition solver (p : form) : bool:=

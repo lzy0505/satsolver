@@ -27,13 +27,6 @@ Definition f :=  (mapsto (land (var x) (var y)) (var y)).
 
 Eval compute in (nnf_converter false f).
 
-(** Helper lemma. *)
-Lemma negb_swap : forall (a b : bool), negb a = b -> a = negb b.
-Proof.
-  intros.
-  rewrite <-H.
-  apply negb_involutive_reverse.
-Qed.
 
 (** Boolean argument works well.*)
 Lemma converter_neg:forall (V : valuation) (p:form),  negb (interp V (nnf_converter false p)) = interp V (nnf_converter true p).
@@ -49,13 +42,11 @@ Proof.
     rewrite <-IHp1, <-IHp2.
     btauto.
   - simpl. (* mapsto *)
-    apply negb_swap in IHp2.
-    rewrite <-IHp1, IHp2.
+    rewrite <-IHp1, <-IHp2.
     btauto.
   - simpl. (* not *)
-    symmetry.
-    apply negb_swap.
-    assumption.
+    rewrite <-IHp.
+    btauto.
 Qed.     
 
 (** Interpretations are same. *)
@@ -87,7 +78,7 @@ Fixpoint is_nnf  (p : form) : bool :=
   | boolv _ => true
   | land p1 p2 =>  is_nnf p1 && is_nnf p2
   | lor p1 p2 =>  is_nnf p1 && is_nnf p2
-  | mapsto p1 p2 =>  is_nnf p1 && is_nnf p2  
+  | mapsto p1 p2 =>  false  
   | not (var _ ) => true (*only return true here*)
   | not (boolv _) => false
   | not (land _ _) => false

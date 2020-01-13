@@ -2,83 +2,66 @@ Require Import Formula FindVal.
 Require Import Btauto.
 
 
+Definition andf (p1 p2 : form): form :=
+  match p1,p2 with
+  | (var x), (boolv true) => (var x)
+  | (var x), (boolv false) => (boolv false)
+  | (boolv true), (var x) => (var x)
+  | (boolv false), (var x) => (boolv false) 
+  | _, _ => land p1 p2
+  end.
+
+Definition orf (p1 p2 : form): form :=
+  match p1,p2 with
+  | (var x), (boolv true) => (boolv true)
+  | (var x), (boolv false) => (var x) 
+  | (boolv true), (var x) => (boolv true)
+  | (boolv false), (var x) => (var x) 
+  | _, _ => lor p1 p2
+  end.
+  
+
 Fixpoint formula_optimizer (p : form): form :=
   match p with
   | var _ => p
-  | boolv _  => p
-  | land (var x) (boolv true) => (var x)
-  | land (var x) (boolv false) => (boolv false)
-  | land (boolv true) (var x) => (var x) 
-  | land (boolv false) (var x) => (boolv false)                                
-  | land p1 p2 => land (formula_optimizer p1) (formula_optimizer p2)
-  | lor (var x) (boolv true) => (boolv true)
-  | lor (var x) (boolv false) => (var x) 
-  | lor (boolv true) (var x) => (boolv true)
-  | lor (boolv false) (var x) => (var x) 
-  | lor p1 p2 => lor (formula_optimizer p1) (formula_optimizer p2)
+  | boolv _  => p           
+  | land p1 p2 => andf (formula_optimizer p1) (formula_optimizer p2)
+  | lor p1 p2 => orf (formula_optimizer p1) (formula_optimizer p2)
   | mapsto p1 p2 => mapsto (formula_optimizer p1) (formula_optimizer p2)
   | not p => not (formula_optimizer p)
   end.
 
 
-  
-Lemma interp_opt_land : forall (V : valuation) (p1 p2 : form),interp V (formula_optimizer (land p1 p2)) = interp V (formula_optimizer p1) && interp V (formula_optimizer p2).
-  Proof.
-    intros.
-    destruct p1 eqn:P1 , p2 eqn:P2;
-      unfold formula_optimizer;
-      try reflexivity; (*trivial cases, form is not changed*)
-      try (destruct b; (*boolv case*)
-       unfold interp);
-      try (btauto). (*land and lor cases*)
-    Qed.
-(**      
-      try (symmetry;apply andb_true_l);
-      try (symmetry;apply andb_false_r);
-      try (symmetry;apply andb_false_l).
-*)
-
-
-
-  
-Lemma interp_opt_lor : forall (V : valuation) (p1 p2 : form),interp V (formula_optimizer (lor p1 p2)) = interp V (formula_optimizer p1) || interp V (formula_optimizer p2).
+Lemma interp_opt_land :forall (V : valuation) (p1 p2 : form), interp V (andf p1 p2) = interp V p1 && interp V p2.
 Proof.
-    intros.
-    destruct p1 eqn:P1 , p2 eqn:P2;
-      unfold formula_optimizer;
-      try reflexivity; (*trivial cases, form is not changed*)
-      try (destruct b; (*boolv case*)
-           unfold interp);
-      try (btauto). (*land and lor cases*)
-  Qed.
-(**     
-        try (symmetry;apply orb_true_r);
-        try (symmetry;apply orb_true_l);
-        try (symmetry;apply orb_false_l).
-        try (symmetry;apply orb_false_r).
-*)
+  intros.
+  destruct p1 eqn:P1 , p2 eqn:P2;try reflexivity;try (destruct b;simpl;btauto).
+Qed.
+  
+ 
+
+Lemma interp_opt_lor :forall (V : valuation) (p1 p2 : form), interp V (orf p1 p2) = interp V p1 || interp V p2.
+Proof.
+  intros.
+  destruct p1 eqn:P1 , p2 eqn:P2;try reflexivity;try (destruct b;simpl;btauto).
+Qed.
+
 
       
 Lemma optimizer_correctness:forall (V : valuation) (p : form), (interp V p) =  (interp V (formula_optimizer p)).
 Proof.
   intros.
-  induction p;try reflexivity. 
+  induction p;try reflexivity;simpl. 
   - rewrite interp_opt_land. (*land *)
     rewrite <-IHp1, <-IHp2.
     reflexivity.
   - rewrite interp_opt_lor. (*lor*)
     rewrite <-IHp1, <-IHp2.
     reflexivity.
-  - unfold formula_optimizer. (*mapsto, just rewrite*)
-    unfold interp.
-    unfold formula_optimizer in IHp1, IHp2.
-    unfold interp in IHp1, IHp2.
+  - simpl. (*mapsto, just rewrite*)
     rewrite IHp1, IHp2.
     reflexivity.
-  - unfold formula_optimizer. (*not, just rewrite*)
-    unfold interp.
-    unfold formula_optimizer in IHp.
-    unfold interp in IHp.
+  - simpl.
     rewrite IHp.
     reflexivity.
 Qed.       

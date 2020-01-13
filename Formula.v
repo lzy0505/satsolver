@@ -13,10 +13,8 @@ Definition eqb_string (x y : string) : bool :=
 
 (** Define the equality on id. *)
 Definition eqb_id  (i1 i2:id): bool :=
-  match i1 with
-  | Id x => match i2 with
-            | Id y => eqb_string x y (*use equality on string*)
-            end
+  match i1, i2 with
+  |Id x, Id y => eqb_string x y (*use equality on string*)
   end.
 
 (** Equality on Ids is decidable. *)
